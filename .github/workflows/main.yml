@@ -3,11 +3,12 @@ name: Android APK (SDK 36)
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]   # عدّلها لاسم فرعك إذا مو main/master
+    branches: [ main, master ]   # إذا فرعك مختلف عدّل الاسم هنا
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,8 +29,24 @@ jobs:
       - name: Gradle cache
         uses: gradle/actions/setup-gradle@v3
 
+      # إصلاح صلاحيات gradlew + إزالة CRLF لو مرفوع من ويندوز
+      - name: Make gradlew executable
+        run: |
+          git config --global core.autocrlf false
+          sed -i 's/\r$//' gradlew || true
+          chmod +x gradlew
+
+      # إخفاء تحذير AGP مع compileSdk 36 (لا يؤثر على البناء)
       - name: Suppress AGP warning for compileSdk 36
         run: echo "android.suppressUnsupportedCompileSdk=36" >> gradle.properties
+
+      # (اختياري) تأكيد وجود الـ wrapper jar لو كان ناقص
+      - name: Ensure Gradle wrapper
+        run: |
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            echo "Wrapper jar missing, generating..."
+            ./gradlew wrapper --gradle-version 8.11.1 --distribution-type bin || true
+          fi
 
       - name: Build Debug APK
         run: ./gradlew --no-daemon :app:assembleDebug
